@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() {
   runApp(MyApp());
@@ -168,10 +170,37 @@ class FavoritesScreen extends StatelessWidget {
   }
 }
 
-class RecipesScreen extends StatelessWidget {
+class RecipesScreen extends StatefulWidget {
   final bool isDarkMode;
 
   RecipesScreen({required this.isDarkMode});
+
+  @override
+  _RecipesScreenState createState() => _RecipesScreenState();
+}
+
+class _RecipesScreenState extends State<RecipesScreen> {
+  late Future<String> _futureData;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureData = fetchData();
+  }
+
+  Future<String> fetchData() async {
+    final response = await http.get(Uri.parse('https://foodish-api.com/api/'));
+    if (response.statusCode == 200) {
+      dynamic data = jsonDecode(response.body);
+      if (data is Map<String, dynamic> && data.containsKey('image')) {
+        return data['image'];
+      } else {
+        throw Exception('Invalid response format');
+      }
+    } else {
+      throw Exception('Failed to load data: ${response.statusCode}');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -188,11 +217,20 @@ class RecipesScreen extends StatelessWidget {
             : null,
       ),
       body: Center(
-        child: Text(
-          'This is the Recipes Screen',
-          style: TextStyle(
-            color: isDarkMode ? Colors.white : Colors.black,
-          ),
+        child: FutureBuilder<String>(
+          future: _futureData,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return CircularProgressIndicator();
+            } else if (snapshot.hasError) {
+              return Text('Error: ${snapshot.error}');
+            } else {
+              return Image.network(
+                snapshot.data!,
+                fit: BoxFit.cover,
+              );
+            }
+          },
         ),
       ),
     );
